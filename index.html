@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบตรวจคำตอบ Game Master - Code Escape: ภารกิจหนีไวรัส</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Prompt & Chakra Petch -->
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        html, body {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: contain;
+        }
+
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #d8eef8;
+            background-image: 
+                radial-gradient(#90cdf4 1.5px, transparent 1.5px),
+                linear-gradient(to right, rgba(43, 108, 176, 0.08) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(43, 108, 176, 0.08) 1px, transparent 1px);
+            background-size: 32px 32px, 32px 32px, 32px 32px;
+            color: #1a365d;
+        }
+
+        .font-scifi {
+            font-family: 'Chakra Petch', 'Prompt', sans-serif;
+        }
+
+        /* Poster Board Frame */
+        .poster-board {
+            background: linear-gradient(180deg, #ebf8ff 0%, #bee3f8 100%);
+            border: 4px solid #2b6cb0;
+            box-shadow: 0 10px 25px rgba(26, 54, 93, 0.18), inset 0 0 0 3px #63b3ed;
+            border-radius: 22px;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .poster-board.flash-correct {
+            box-shadow: 0 0 0 6px #10b981, 0 0 40px rgba(16, 185, 129, 0.8);
+        }
+
+        .poster-board.flash-wrong {
+            box-shadow: 0 0 0 6px #ef4444, 0 0 40px rgba(239, 68, 68, 0.8);
+            animation: boardShake 0.45s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* Yellow Ribbon Banner matching the poster */
+        .poster-banner {
+            background: linear-gradient(180deg, #fef08a 0%, #facc15 100%);
+            border: 3px solid #1e3a8a;
+            box-shadow: 0 4px 0 #1e3a8a;
+            border-radius: 14px;
+        }
+
+        /* White Info Box inside Poster */
+        .poster-subbox {
+            background: #ffffff;
+            border: 2.5px solid #2c5282;
+            border-radius: 16px;
+            box-shadow: 0 3px 8px rgba(44, 82, 130, 0.1);
+        }
+
+        /* Grid Cell Styling matching the poster */
+        .grid-cell {
+            background-color: #f4fbe8;
+            border: 2px solid #2b6cb0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: background-color 0.15s ease, transform 0.1s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .grid-cell.touch-highlight {
+            background-color: #fef08a !important;
+            box-shadow: inset 0 0 0 2px #d97706;
+        }
+
+        /* Dark Slate Brick Wall matching the poster */
+        .grid-cell.wall {
+            background-color: #334155;
+            background-image: 
+                linear-gradient(335deg, rgba(15, 23, 42, 0.45) 14px, transparent 14px),
+                linear-gradient(155deg, rgba(15, 23, 42, 0.45) 14px, transparent 14px),
+                linear-gradient(335deg, rgba(15, 23, 42, 0.45) 14px, transparent 14px),
+                linear-gradient(155deg, rgba(15, 23, 42, 0.45) 14px, transparent 14px);
+            background-size: 24px 24px;
+            background-position: 0px 2px, 4px 13px, 12px 14px, 16px 3px;
+            border-color: #1e293b;
+        }
+
+        /* Arrow Badge Styling matching poster */
+        .poster-arrow-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #689ea8;
+            color: #ffffff;
+            border: 2.5px solid #1a202c;
+            border-radius: 8px;
+            box-shadow: 0 2px 0 #1a202c;
+        }
+
+        /* iPad Touch Action Buttons */
+        .ipad-btn {
+            min-height: 48px;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            transition: transform 0.1s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .ipad-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Command Chip in GM Input */
+        .cmd-chip {
+            background: #ffffff;
+            border: 2.5px solid #2b6cb0;
+            box-shadow: 0 3px 0 #2b6cb0;
+            min-width: 54px;
+            min-height: 58px;
+            transition: all 0.15s ease;
+        }
+        .cmd-chip.active-step {
+            background: #fef08a;
+            border-color: #d97706;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.8);
+            transform: scale(1.08);
+        }
+
+        /* Action Pop-up Animations for Correct / Wrong */
+        @keyframes popBounceIn {
+            0% { transform: scale(0.4); opacity: 0; }
+            60% { transform: scale(1.08); opacity: 1; }
+            80% { transform: scale(0.96); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes boardShake {
+            10%, 90% { transform: translate3d(-4px, 0, 0); }
+            20%, 80% { transform: translate3d(7px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-10px, 0, 0); }
+            40%, 60% { transform: translate3d(10px, 0, 0); }
+        }
+
+        .anim-pop-correct {
+            animation: popBounceIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .anim-pop-wrong {
+            animation: popBounceIn 0.3s ease-out forwards, boardShake 0.45s 0.15s both;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- TOP BAR: System Header & Station Switcher -->
+    <header class="bg-[#1e3a8a] text-white border-b-4 border-[#facc15] px-4 py-3 sticky top-0 z-40 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            
+            <!-- Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-xl bg-[#facc15] border-2 border-white flex items-center justify-center text-2xl shadow">
+                    🤖
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-scifi text-lg sm:text-xl md:text-2xl font-bold text-[#fef08a] tracking-wide leading-tight">
+                            ระบบตรวจคำตอบ Code Escape
+                        </h1>
+                        <span class="bg-blue-700/80 text-blue-100 border border-blue-400/50 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                            <i class="fa-solid fa-tablet-screen-button"></i> iPad Touch
+                        </span>
+                    </div>
+                    <p class="text-xs text-blue-200">ลากนิ้ว/Apple Pencil บนตาราง หรือแตะปุ่มทิศทางเพื่อป้อนคำสั่ง</p>
+                </div>
+            </div>
+
+            <!-- Station Switcher & Sound Toggle -->
+            <div class="flex items-center gap-2.5">
+                <div class="flex items-center bg-[#172554] p-1.5 rounded-xl border border-blue-400/40 gap-1.5">
+                    <button onclick="selectLevel(1)" id="tab-lvl-1" class="ipad-btn px-4 py-2 rounded-lg text-sm font-bold bg-[#facc15] text-[#1e3a8a] shadow">
+                        ฐานที่ 1
+                    </button>
+                    <button onclick="selectLevel(2)" id="tab-lvl-2" class="ipad-btn px-4 py-2 rounded-lg text-sm font-bold text-blue-100 hover:bg-blue-800">
+                        ฐานที่ 2
+                    </button>
+                    <button onclick="selectLevel(3)" id="tab-lvl-3" class="ipad-btn px-4 py-2 rounded-lg text-sm font-bold text-blue-100 hover:bg-blue-800">
+                        ฐานที่ 3
+                    </button>
+                </div>
+
+                <button onclick="toggleSound()" id="btn-sound" class="ipad-btn bg-blue-800 hover:bg-blue-700 border border-blue-400/50 text-white w-12 h-12 rounded-xl flex items-center justify-center text-lg" title="เปิด/ปิดเสียง">
+                    <i class="fa-solid fa-volume-high"></i>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
+        
+        <!-- LEFT COLUMN: EXACT STUDENT MISSION POSTER REPLICA -->
+        <section id="poster-board-frame" class="md:col-span-6 poster-board p-4 sm:p-5 flex flex-col gap-3.5 relative">
+            <!-- Top Rivets -->
+            <div class="flex justify-between items-center -mt-2 -mx-1">
+                <span class="w-3 h-3 rounded-full bg-slate-400 border border-slate-600 shadow-inner"></span>
+                <span class="w-3 h-3 rounded-full bg-slate-400 border border-slate-600 shadow-inner"></span>
+            </div>
+
+            <!-- Yellow Banner Header matching Student Poster -->
+            <div class="poster-banner px-3 py-2 flex items-center justify-center gap-2.5">
+                <span class="text-2xl sm:text-3xl drop-shadow">🤖</span>
+                <h2 id="poster-banner-title" class="font-scifi text-lg sm:text-xl md:text-2xl font-extrabold text-[#1e3a8a] text-center">
+                    ภารกิจที่ 1 : เส้นทางสายตรง
+                </h2>
+            </div>
+
+            <!-- Subtitle & Mission Condition -->
+            <div class="text-center -mt-1">
+                <p id="poster-subtitle" class="font-scifi font-bold text-xs sm:text-sm text-slate-800 tracking-wide">
+                    (MISSION 1: THE STRAIGHT PATH)
+                </p>
+                <p id="poster-condition" class="text-xs font-semibold text-[#1e3a8a] bg-white/80 inline-block px-3 py-1 rounded-full border border-blue-300 mt-1">
+                    เป้าหมาย: พาหุ่นยนต์จาก E1 ไปยังประตูมิติ A5
+                </p>
+            </div>
+
+            <!-- THE MAP GRID WITH SVG PATH OVERLAY & DIRECT TOUCH DRAWING -->
+            <div class="flex flex-col items-center my-1">
+                <div class="bg-white/90 p-3 sm:p-4 rounded-2xl border-2 border-[#63b3ed] shadow-inner touch-none">
+                    <div id="grid-container" class="relative select-none touch-none">
+                        <div id="map-grid"></div>
+                        <svg id="path-svg" class="absolute inset-0 pointer-events-none z-20" style="width: 100%; height: 100%;"></svg>
+                    </div>
+                </div>
+                <p class="text-[11px] font-semibold text-[#1e3a8a] mt-1.5 bg-white/80 px-3 py-1 rounded-full border border-blue-300">
+                    👆 เคล็ดลับ iPad: ลากนิ้วหรือ Apple Pencil จากตัวหุ่นยนต์ไปตามช่องเพื่อสร้างโค้ดอัตโนมัติ
+                </p>
+            </div>
+
+            <!-- CONTROL COMMANDS BOX -->
+            <div class="poster-subbox p-3 sm:p-4">
+                <h4 class="text-center font-bold text-[#1e3a8a] text-sm sm:text-base mb-2.5">
+                    คำสั่งควบคุม (Control Commands)
+                </h4>
+                <div class="grid grid-cols-4 gap-2 text-center">
+                    <div class="flex flex-col items-center">
+                        <div class="poster-arrow-icon w-10 h-10 text-xl font-bold">⬆</div>
+                        <span class="text-[11px] sm:text-xs font-semibold text-slate-800 mt-1.5">เดินขึ้น 1 ก้าว</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div class="poster-arrow-icon w-10 h-10 text-xl font-bold">⬇</div>
+                        <span class="text-[11px] sm:text-xs font-semibold text-slate-800 mt-1.5">เดินลง 1 ก้าว</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div class="poster-arrow-icon w-10 h-10 text-xl font-bold">⬅</div>
+                        <span class="text-[11px] sm:text-xs font-semibold text-slate-800 mt-1.5">เดินซ้าย 1 ก้าว</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div class="poster-arrow-icon w-10 h-10 text-xl font-bold">➡</div>
+                        <span class="text-[11px] sm:text-xs font-semibold text-slate-800 mt-1.5">เดินขวา 1 ก้าว</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LOOP EXAMPLE BOX -->
+            <div class="poster-subbox p-3 sm:p-4">
+                <h4 class="text-center font-bold text-[#1e3a8a] text-sm sm:text-base mb-1.5">
+                    แนวทางการทำซ้ำ (Loop Example)
+                </h4>
+                <div id="poster-loop-example" class="flex items-center justify-center gap-3 text-xs sm:text-sm font-semibold text-slate-800">
+                    <span>หากต้องเดินไปทางขวา 4 ก้าว ให้เขียน :</span>
+                    <div class="relative inline-flex flex-col items-center">
+                        <span class="text-xs font-bold text-[#1e3a8a] -mb-1">×4</span>
+                        <div class="poster-arrow-icon w-9 h-8 text-lg font-bold">➡</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Rivets -->
+            <div class="flex justify-between items-center -mb-2 -mx-1">
+                <span class="w-3 h-3 rounded-full bg-slate-400 border border-slate-600 shadow-inner"></span>
+                <span class="w-3 h-3 rounded-full bg-slate-400 border border-slate-600 shadow-inner"></span>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: GAME MASTER ANSWER CHECKER & LEADERBOARD -->
+        <section class="md:col-span-6 flex flex-col gap-5">
+            
+            <!-- ANSWER VERIFICATION CARD -->
+            <div class="bg-white border-4 border-[#2b6cb0] rounded-2xl p-4 sm:p-5 shadow-xl">
+                <div class="flex items-center justify-between border-b-2 border-slate-200 pb-3 mb-4">
+                    <div>
+                        <span class="bg-blue-100 text-[#1e3a8a] text-xs font-bold px-2.5 py-1 rounded-md border border-blue-300">
+                            GAME MASTER CONSOLE
+                        </span>
+                        <h3 class="font-scifi text-lg sm:text-xl font-bold text-[#1e3a8a] mt-1">
+                            ตรวจกระดาษคำตอบ (Code Sheet)
+                        </h3>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-slate-500 block">เกณฑ์ Loop สั้นที่สุด</span>
+                        <span id="gm-optimal-hint" class="font-scifi font-bold text-sm text-amber-600 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-lg">
+                            ไม่เกิน 2 ชุดคำสั่ง
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Step 1: Team Name -->
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-[#1e3a8a] mb-1">
+                        1. ชื่อทีม (Team Name)
+                    </label>
+                    <input type="text" id="team-name-input" placeholder="แตะเพื่อพิมพ์ชื่อทีม (เว้นว่างได้ ระบบจะตั้งชื่อให้อัตโนมัติ)" 
+                        class="w-full bg-slate-50 border-2 border-[#63b3ed] focus:border-[#1e3a8a] focus:bg-white rounded-xl px-3.5 py-3 text-base font-semibold text-slate-800 focus:outline-none transition">
+                </div>
+
+                <!-- Step 2: Key in Student's Code -->
+                <div class="mb-4">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <label class="text-sm font-bold text-[#1e3a8a]">
+                            2. เลือกตัวคูณทำซ้ำ แล้วแตะทิศทาง:
+                        </label>
+                        <span class="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-300 px-2.5 py-1 rounded-lg">
+                            เลือกอยู่: <b id="active-mult-label" class="font-scifi text-sm text-[#1e3a8a]">×4</b>
+                        </span>
+                    </div>
+
+                    <!-- Touch Pill Bar for Multiplier (x1 to x6) -->
+                    <div id="multiplier-pills" class="grid grid-cols-6 gap-1.5 bg-amber-50 border-2 border-amber-400 p-1.5 rounded-xl mb-3">
+                        <button type="button" onclick="setMultiplier(1)" data-mult="1" class="ipad-btn mult-pill rounded-lg font-scifi font-bold text-base bg-white text-[#1e3a8a] border border-amber-300">×1</button>
+                        <button type="button" onclick="setMultiplier(2)" data-mult="2" class="ipad-btn mult-pill rounded-lg font-scifi font-bold text-base bg-white text-[#1e3a8a] border border-amber-300">×2</button>
+                        <button type="button" onclick="setMultiplier(3)" data-mult="3" class="ipad-btn mult-pill rounded-lg font-scifi font-bold text-base bg-white text-[#1e3a8a] border border-amber-300">×3</button>
+                        <button type="button" onclick="setMultiplier(4)" data-mult="4" class="ipad-btn mult-pill rounded-lg font-scifi font-bold text-base bg-[#1e3a8a] text-[#fef08a] shadow">×4</button>
+                        <button type="button" onclick="setMultiplier(5)" data-mult="5" class="ipad-btn mult-pill rounded-lg font-scifi font-bold text-base bg-white text-[#1e3a8a] border border-amber-300">×5</button>
+                        <button type="button" onclick="setMultiplier(6)" data-mult="6" class="ipad-btn mult-pill rounded-lg font-scifi font-bold text-base bg-white text-[#1e3a8a] border border-amber-300">×6</button>
+                    </div>
+
+                    <!-- 4 Large Touch Direction Input Buttons -->
+                    <div class="grid grid-cols-4 gap-2.5 mb-3">
+                        <button type="button" onclick="addCommand('UP')" class="ipad-btn bg-[#ebf8ff] hover:bg-[#bee3f8] border-2 border-[#2b6cb0] rounded-xl py-3 px-2 flex flex-col items-center justify-center shadow-sm">
+                            <span class="poster-arrow-icon w-10 h-10 text-xl font-bold">⬆</span>
+                            <span class="text-xs sm:text-sm font-bold text-[#1e3a8a] mt-1">ขึ้น</span>
+                        </button>
+                        <button type="button" onclick="addCommand('DOWN')" class="ipad-btn bg-[#ebf8ff] hover:bg-[#bee3f8] border-2 border-[#2b6cb0] rounded-xl py-3 px-2 flex flex-col items-center justify-center shadow-sm">
+                            <span class="poster-arrow-icon w-10 h-10 text-xl font-bold">⬇</span>
+                            <span class="text-xs sm:text-sm font-bold text-[#1e3a8a] mt-1">ลง</span>
+                        </button>
+                        <button type="button" onclick="addCommand('LEFT')" class="ipad-btn bg-[#ebf8ff] hover:bg-[#bee3f8] border-2 border-[#2b6cb0] rounded-xl py-3 px-2 flex flex-col items-center justify-center shadow-sm">
+                            <span class="poster-arrow-icon w-10 h-10 text-xl font-bold">⬅</span>
+                            <span class="text-xs sm:text-sm font-bold text-[#1e3a8a] mt-1">ซ้าย</span>
+                        </button>
+                        <button type="button" onclick="addCommand('RIGHT')" class="ipad-btn bg-[#ebf8ff] hover:bg-[#bee3f8] border-2 border-[#2b6cb0] rounded-xl py-3 px-2 flex flex-col items-center justify-center shadow-sm">
+                            <span class="poster-arrow-icon w-10 h-10 text-xl font-bold">➡</span>
+                            <span class="text-xs sm:text-sm font-bold text-[#1e3a8a] mt-1">ขวา</span>
+                        </button>
+                    </div>
+
+                    <!-- Entered Code Display Box -->
+                    <div class="bg-slate-100 border-2 border-dashed border-[#63b3ed] rounded-xl p-3 min-h-[94px]">
+                        <div class="flex items-center justify-between text-xs text-slate-600 mb-2">
+                            <span>ชุดคำสั่ง (<b id="cmd-count" class="text-[#1e3a8a]">0</b> บล็อก) — แตะที่บล็อกเพื่อลบ:</span>
+                            <div class="flex items-center gap-2">
+                                <button type="button" onclick="undoLastCommand()" class="ipad-btn !min-h-[34px] bg-white border border-slate-300 text-slate-700 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 shadow-2xs">
+                                    <i class="fa-solid fa-delete-left"></i> ลบตัวท้าย
+                                </button>
+                                <button type="button" onclick="clearCommands()" class="ipad-btn !min-h-[34px] bg-rose-50 border border-rose-300 text-rose-600 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1">
+                                    <i class="fa-solid fa-trash-can"></i> ล้างทั้งหมด
+                                </button>
+                            </div>
+                        </div>
+                        <div id="code-list" class="flex flex-wrap gap-2.5 items-center">
+                            <span class="text-xs text-slate-400 italic py-2">ยังไม่มีคำสั่ง แตะปุ่มทิศทางด้านบนหรือลากนิ้วบนตาราง...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Virus Survival Toggle Card -->
+                <label class="ipad-btn bg-blue-50 border-2 border-blue-300 rounded-xl px-4 py-3 mb-4 flex items-center justify-between cursor-pointer select-none">
+                    <div class="flex items-center gap-3 font-bold text-xs sm:text-sm text-[#1e3a8a]">
+                        <input type="checkbox" id="chk-survived" checked onchange="recalculateTotal()" class="w-6 h-6 accent-emerald-600 rounded cursor-pointer">
+                        <span>🛡️ สถานะทีม: รอดชีวิตจากไวรัส (ส่งทันเวลา)</span>
+                    </div>
+                    <span id="pre-virus-badge" class="text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-md whitespace-nowrap">+50 คะแนน</span>
+                </label>
+
+                <!-- Step 3: Run Verification Button -->
+                <div class="grid grid-cols-3 gap-2.5 mb-4">
+                    <button type="button" onclick="verifyAnswer()" id="btn-verify" class="ipad-btn col-span-2 bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] hover:from-[#1d4ed8] hover:to-[#1e40af] text-white font-scifi font-bold text-base sm:text-lg py-3.5 px-4 rounded-xl shadow-md flex items-center justify-center gap-2">
+                        <span>▶ ตรวจคำตอบ (รันหุ่นยนต์)</span>
+                    </button>
+                    <button type="button" onclick="resetBoardState()" class="ipad-btn bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-sm py-3.5 px-3 rounded-xl flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-rotate-left"></i> รีเซ็ตกระดาน
+                    </button>
+                </div>
+
+                <!-- Step 4: Instant Verification Result & Score Saving Box -->
+                <div id="result-box" class="hidden rounded-2xl border-2 p-4 transition-all">
+                    <div class="flex items-start gap-3 mb-3">
+                        <div id="res-icon" class="text-3xl">🎉</div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 id="res-title" class="font-scifi font-bold text-base sm:text-lg">ผ่านภารกิจ (+100 คะแนน)</h4>
+                                <span class="text-[11px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                                    <i class="fa-solid fa-check-circle"></i> บันทึกลง Log แล้ว
+                                </span>
+                            </div>
+                            <p id="res-desc" class="text-xs sm:text-sm mt-0.5">หุ่นยนต์เดินทางถึงเป้าหมายสำเร็จ!</p>
+                        </div>
+                    </div>
+
+                    <!-- Score Breakdown Checklist -->
+                    <div class="bg-white/90 rounded-xl p-3 border border-slate-200 space-y-2 text-xs sm:text-sm mb-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium text-slate-700">1. ผลลัพธ์ภารกิจ:</span>
+                            <span id="score-mission-badge" class="font-bold text-emerald-600">+100 คะแนน</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium text-slate-700">2. โบนัสใช้ Loop สั้นที่สุด (Optimal Code):</span>
+                            <span id="score-optimal-badge" class="font-bold text-amber-600">+50 คะแนน</span>
+                        </div>
+                        <div class="flex justify-between items-center pt-1 border-t border-slate-200">
+                            <span class="font-medium text-slate-700">3. โบนัสรอดชีวิตจากไวรัส:</span>
+                            <span id="score-virus-badge" class="font-bold text-blue-600">+50 คะแนน</span>
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t-2 border-slate-300 text-base font-scifi font-bold">
+                            <span class="text-slate-900">คะแนนสุทธิของฐานนี้:</span>
+                            <span id="score-stage-total" class="text-xl text-[#1e3a8a]">200 คะแนน</span>
+                        </div>
+                    </div>
+
+                    <!-- Save Score Button -->
+                    <button type="button" onclick="saveTeamScore()" class="ipad-btn w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-scifi font-bold text-base py-3 px-4 rounded-xl shadow flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-trophy"></i> อัปเดตคะแนนทีมนี้ลงตารางสรุปผลรวม
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- AUTO-RUN LOG CARD -->
+            <div class="bg-white border-4 border-[#63b3ed] rounded-2xl p-4 sm:p-5 shadow-xl">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">📋</span>
+                        <div>
+                            <h3 class="font-scifi text-base sm:text-lg font-bold text-[#1e3a8a]">
+                                บันทึกการตรวจคำตอบ (Auto-Run Log)
+                            </h3>
+                            <p class="text-[11px] text-slate-500">บันทึกประวัติอัตโนมัติทุกครั้งที่กดปุ่มรันหุ่นยนต์ (<span id="log-count" class="font-bold text-[#1e3a8a]">0</span> รายการ)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="copyRunLogs()" class="ipad-btn !min-h-[38px] bg-blue-50 hover:bg-blue-100 text-[#1e3a8a] border border-blue-300 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                            <i class="fa-solid fa-copy"></i> คัดลอก Log
+                        </button>
+                        <button type="button" onclick="confirmClearLogs()" class="ipad-btn !min-h-[38px] text-xs text-slate-500 hover:text-rose-600 underline px-2">
+                            ล้าง Log
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto max-h-60 overflow-y-auto border border-slate-200 rounded-xl">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="sticky top-0 bg-blue-50 text-[#1e3a8a] border-b-2 border-blue-200 z-10">
+                            <tr>
+                                <th class="py-2 px-2">เวลา</th>
+                                <th class="py-2 px-2">ชื่อทีม</th>
+                                <th class="py-2 px-1.5 text-center">ฐาน</th>
+                                <th class="py-2 px-2">ชุดคำสั่ง</th>
+                                <th class="py-2 px-2">ผลการตรวจ</th>
+                                <th class="py-2 px-2 text-right">คะแนน</th>
+                                <th class="py-2 px-1.5 text-center">ส่งตาราง</th>
+                            </tr>
+                        </thead>
+                        <tbody id="run-log-tbody" class="divide-y divide-slate-200">
+                            <tr>
+                                <td colspan="7" class="py-6 text-center text-slate-400">ยังไม่มีประวัติการรันตรวจคำตอบ</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- LEADERBOARD CARD -->
+            <div class="bg-white border-4 border-[#facc15] rounded-2xl p-4 sm:p-5 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl">🏆</span>
+                        <div>
+                            <h3 class="font-scifi text-base sm:text-lg font-bold text-[#1e3a8a]">
+                                ตารางสรุปคะแนนรวมทั้ง 3 ฐาน
+                            </h3>
+                            <p class="text-[11px] text-slate-500">ทีมคะแนนสูงสุดรับรางวัลสีอะคริลิค 48 สี</p>
+                        </div>
+                    </div>
+                    <button onclick="confirmClearLeaderboard()" class="text-xs text-slate-400 hover:text-rose-600 underline">
+                        ล้างตารางคะแนน
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                        <thead>
+                            <tr class="bg-blue-50 text-[#1e3a8a] border-y-2 border-blue-200">
+                                <th class="py-2 px-2">อันดับ</th>
+                                <th class="py-2 px-2">ชื่อทีม</th>
+                                <th class="py-2 px-1.5 text-center">ฐาน 1</th>
+                                <th class="py-2 px-1.5 text-center">ฐาน 2</th>
+                                <th class="py-2 px-1.5 text-center">ฐาน 3</th>
+                                <th class="py-2 px-2 text-right font-bold">คะแนนรวม</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-tbody" class="divide-y divide-slate-200">
+                            <tr>
+                                <td colspan="6" class="py-6 text-center text-slate-400">ยังไม่มีการบันทึกคะแนนทีม</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- ACTION POPUP OVERLAY: BIG VISUAL FEEDBACK FOR CORRECT / WRONG ANSWER -->
+    <div id="action-feedback-overlay" onclick="closeActionFeedback()" class="fixed inset-0 bg-slate-900/75 backdrop-blur-xs z-50 hidden items-center justify-center p-4 cursor-pointer">
+        <div id="action-feedback-card" onclick="event.stopPropagation()" class="max-w-md w-full rounded-3xl border-8 p-6 sm:p-8 text-center shadow-2xl relative bg-white">
+            <div id="action-fb-badge" class="inline-block text-xs font-extrabold tracking-widest uppercase px-4 py-1 rounded-full mb-3">
+                RESULT
+            </div>
+            <div id="action-fb-emoji" class="text-7xl sm:text-8xl mb-3 drop-shadow">✅</div>
+            <h2 id="action-fb-headline" class="font-scifi text-3xl sm:text-4xl font-extrabold mb-2">
+                ตอบถูก!
+            </h2>
+            <p id="action-fb-sub" class="text-base sm:text-lg font-semibold mb-4">
+                ยินดีด้วย! หุ่นยนต์ผ่านภารกิจสำเร็จ
+            </p>
+            <div id="action-fb-score-pill" class="inline-block font-scifi font-bold text-xl px-5 py-2 rounded-2xl mb-5">
+                +150 คะแนน
+            </div>
+            <div>
+                <button type="button" onclick="closeActionFeedback()" id="action-fb-btn" class="ipad-btn w-full font-scifi font-bold text-lg py-3.5 px-6 rounded-2xl text-white shadow-lg">
+                    ตกลง / ดูรายละเอียดคะแนน
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Notification Toast / Modal -->
+    <div id="toast-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+        <div class="bg-white border-4 border-[#2b6cb0] rounded-2xl max-w-sm w-full p-5 text-center shadow-2xl">
+            <div id="toast-icon" class="text-5xl mb-2">⚠️</div>
+            <h4 id="toast-title" class="font-scifi text-xl font-bold text-[#1e3a8a] mb-1">แจ้งเตือน</h4>
+            <p id="toast-msg" class="text-sm text-slate-600 mb-4">ข้อความแจ้งเตือน</p>
+            <div id="toast-actions" class="flex gap-2 justify-center">
+                <button onclick="closeToast()" class="bg-[#2b6cb0] hover:bg-[#1e3a8a] text-white font-bold py-2 px-6 rounded-xl text-sm transition">
+                    ตกลง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           1. WEB AUDIO API SOUND ENGINE (SFX - DISTINCT CORRECT & WRONG SOUNDS)
+           ========================================================================== */
+        let soundEnabled = true;
+        let audioCtx = null;
+
+        function getAudioCtx() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) audioCtx = new AudioContext();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playTone(freq, type = 'sine', duration = 0.12, vol = 0.15, delay = 0) {
+            if (!soundEnabled) return;
+            try {
+                const ctx = getAudioCtx();
+                if (!ctx) return;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+                gain.gain.setValueAtTime(vol, ctx.currentTime + delay);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + duration);
+            } catch (e) {}
+        }
+
+        const SFX = {
+            click: () => playTone(620, 'sine', 0.06, 0.1),
+            step: () => playTone(440, 'triangle', 0.09, 0.12),
+            key: () => {
+                playTone(880, 'sine', 0.12, 0.15, 0);
+                playTone(1320, 'sine', 0.2, 0.15, 0.1);
+            },
+            // Celebratory Fanfare for Correct Answer ("ตอบถูก")
+            correct: () => {
+                playTone(523.25, 'triangle', 0.14, 0.22, 0);     // C5
+                playTone(659.25, 'triangle', 0.14, 0.22, 0.11);  // E5
+                playTone(783.99, 'triangle', 0.14, 0.22, 0.22);  // G5
+                playTone(1046.5, 'triangle', 0.45, 0.26, 0.33);  // C6
+                playTone(1318.5, 'sine', 0.45, 0.18, 0.36);      // E6 harmony
+            },
+            // Game-show Buzzer for Wrong Answer ("ตอบผิด")
+            wrong: () => {
+                playTone(233.08, 'sawtooth', 0.22, 0.22, 0);     // Bb3
+                playTone(185.00, 'sawtooth', 0.22, 0.22, 0.18);  // F#3
+                playTone(138.59, 'sawtooth', 0.45, 0.25, 0.36);  // C#3 low buzz
+            }
+        };
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById('btn-sound');
+            btn.innerHTML = soundEnabled
+                ? '<i class="fa-solid fa-volume-high"></i>'
+                : '<i class="fa-solid fa-volume-xmark text-rose-300"></i>';
+            if (soundEnabled) SFX.click();
+        }
+
+        /* ==========================================================================
+           2. STATIONS DATA
+           ========================================================================== */
+        const STATIONS = {
+            1: {
+                bannerTitle: 'ภารกิจที่ 1 : เส้นทางสายตรง',
+                subtitle: '(MISSION 1: THE STRAIGHT PATH)',
+                condition: 'เป้าหมาย: พาหุ่นยนต์จาก E1 ไปยังประตูมิติ A6',
+                rows: 5,
+                cols: 6,
+                rowLabels: ['A', 'B', 'C', 'D', 'E'],
+                colLabels: ['1', '2', '3', '4', '5', '6'],
+                start: { r: 4, c: 0 },
+                goal: { r: 0, c: 5, icon: '🔋', label: 'ประตูมิติ' },
+                walls: [
+                    { r: 1, c: 1 }, { r: 2, c: 1 }, { r: 3, c: 1 }, { r: 4, c: 1 },
+                    { r: 4, c: 2 },
+                    { r: 1, c: 3 }, { r: 2, c: 3 }, { r: 3, c: 3 }, { r: 4, c: 3 },
+                    { r: 1, c: 4 }, { r: 2, c: 4 }, { r: 3, c: 4 }, { r: 4, c: 4 }
+                ],
+                optimalCount: 2,
+                loopExampleHTML: `
+                    <span>หากต้องเดินไปทางขวา 5 ก้าว ให้เขียน :</span>
+                    <div class="relative inline-flex flex-col items-center">
+                        <span class="text-xs font-bold text-[#1e3a8a] -mb-1">×5</span>
+                        <div class="poster-arrow-icon w-9 h-8 text-lg font-bold">➡</div>
+                    </div>`
+            },
+            2: {
+                bannerTitle: 'ภารกิจที่ 2 : ซิกแซกหลบกับดัก',
+                subtitle: '(MISSION 2: ZIG-ZAG TRAP)',
+                condition: 'เป้าหมาย: หลบกำแพงจาก E1 ไปยังประตูมิติ A6',
+                rows: 5,
+                cols: 6,
+                rowLabels: ['A', 'B', 'C', 'D', 'E'],
+                start: { r: 4, c: 0 },
+                goal: { r: 0, c: 5, icon: '🔋', label: 'ประตูมิติ' },
+                walls: [
+                    { r: 0, c: 1 }, { r: 1, c: 1 }, { r: 3, c: 1 },
+                    { r: 4, c: 2 },
+                    { r: 1, c: 4 }, { r: 2, c: 4 }, { r: 3, c: 4 }
+                ],
+                optimalCount: 4,
+                loopExampleHTML: `
+                    <span>ตัวอย่างการทำซ้ำหลายช่วง :</span>
+                    <div class="inline-flex items-center gap-2">
+                        <div class="flex flex-col items-center"><span class="text-xs font-bold text-[#1e3a8a] -mb-1">×2</span><div class="poster-arrow-icon w-8 h-7 text-base font-bold">⬆</div></div>
+                        <span>,</span>
+                        <div class="flex flex-col items-center"><span class="text-xs font-bold text-[#1e3a8a] -mb-1">×2</span><div class="poster-arrow-icon w-8 h-7 text-base font-bold">➡</div></div>
+                    </div>`
+            },
+            3: {
+                bannerTitle: 'ภารกิจที่ 3 : เขาวงกตไวรัส',
+                subtitle: '(MISSION 3: VIRUS MAZE)',
+                condition: 'เงื่อนไข: เก็บกุญแจ (C2) ➔ ผ่านเครื่อง (A5) ➔ ประตูมิติ (A7)',
+                rows: 5,
+                cols: 7,
+                rowLabels: ['A', 'B', 'C', 'D', 'G'],
+                start: { r: 4, c: 0 },
+                key: { r: 2, c: 1, label: 'กุญแจ' },
+                computer: { r: 0, c: 4, icon: '💻', label: 'เครื่อง' },
+                goal: { r: 0, c: 6, icon: '🔋', label: 'ประตูมิติ' },
+                walls: [
+                    { r: 1, c: 1 }, { r: 3, c: 1 },
+                    { r: 1, c: 2 }, { r: 3, c: 2 }, { r: 4, c: 2 },
+                    { r: 1, c: 4 }, { r: 3, c: 4 },
+                    { r: 1, c: 5 }, { r: 2, c: 5 }, { r: 3, c: 5 }
+                ],
+                optimalCount: 5,
+                loopExampleHTML: `
+                    <span>แนวทางย่อคำสั่งต่อเนื่อง :</span>
+                    <div class="inline-flex items-center gap-2">
+                        <div class="flex flex-col items-center"><span class="text-xs font-bold text-[#1e3a8a] -mb-1">×3</span><div class="poster-arrow-icon w-8 h-7 text-base font-bold">⬆</div></div>
+                        <span>,</span>
+                        <div class="flex flex-col items-center"><span class="text-xs font-bold text-[#1e3a8a] -mb-1">×2</span><div class="poster-arrow-icon w-8 h-7 text-base font-bold">➡</div></div>
+                        <span>,</span>
+                        <div class="flex flex-col items-center"><span class="text-xs font-bold text-[#1e3a8a] -mb-1">×2</span><div class="poster-arrow-icon w-8 h-7 text-base font-bold">⬆</div></div>
+                    </div>`
+            }
+        };
+
+        /* ==========================================================================
+           3. STATE VARIABLES
+           ========================================================================== */
+        let currentLevel = 1;
+        let selectedMultiplier = 4;
+        let commandList = [];
+        let robotPos = { r: 4, c: 0 };
+        let pathHistory = [];
+        let keyCollected = false;
+        let computerVisited = false;
+        let isSimulating = false;
+
+        let isTouchDrawing = false;
+        let drawnCells = [];
+
+        let lastEval = {
+            passed: false,
+            missionScore: 0,
+            optimalScore: 0
+        };
+
+        let teamScores = JSON.parse(localStorage.getItem('gmCodeEscapeScores')) || {};
+        let autoRunLogs = JSON.parse(localStorage.getItem('gmCodeEscapeLogs')) || [];
+
+        window.onload = function() {
+            selectLevel(1);
+            renderRunLogs();
+            renderLeaderboard();
+            setupTouchGridDrawing();
+            window.addEventListener('resize', drawSvgPath);
+        };
+
+        /* ==========================================================================
+           4. STATION SELECTION & GRID RENDERING
+           ========================================================================== */
+        function selectLevel(lvl) {
+            if (isSimulating) return;
+            SFX.click();
+            currentLevel = lvl;
+            const st = STATIONS[lvl];
+
+            [1, 2, 3].forEach(id => {
+                const tab = document.getElementById(`tab-lvl-${id}`);
+                if (id === lvl) {
+                    tab.className = "ipad-btn px-4 py-2 rounded-lg text-sm font-bold bg-[#facc15] text-[#1e3a8a] shadow";
+                } else {
+                    tab.className = "ipad-btn px-4 py-2 rounded-lg text-sm font-bold text-blue-100 hover:bg-blue-800";
+                }
+            });
+
+            document.getElementById('poster-banner-title').innerText = st.bannerTitle;
+            document.getElementById('poster-subtitle').innerText = st.subtitle;
+            document.getElementById('poster-condition').innerText = st.condition;
+            document.getElementById('poster-loop-example').innerHTML = st.loopExampleHTML;
+
+            document.getElementById('gm-optimal-hint').innerText = lvl === 3 
+                ? "ไม่เกิน 5 ชุดคำสั่ง" 
+                : `ไม่เกิน ${st.optimalCount} ชุดคำสั่ง`;
+
+            clearCommands();
+            resetBoardState();
+        }
+
+        function resetBoardState() {
+            if (isSimulating) return;
+            const st = STATIONS[currentLevel];
+            robotPos = { ...st.start };
+            pathHistory = [{ ...st.start }];
+            keyCollected = false;
+            computerVisited = false;
+            document.getElementById('result-box').classList.add('hidden');
+            const boardFrame = document.getElementById('poster-board-frame');
+            boardFrame.classList.remove('flash-correct', 'flash-wrong');
+            renderGrid();
+            drawSvgPath();
+        }
+
+        function renderGrid() {
+            const st = STATIONS[currentLevel];
+            const mapEl = document.getElementById('map-grid');
+            mapEl.innerHTML = '';
+
+            let cellClass = 'w-12 h-12 sm:w-14 sm:h-14';
+            let colHeaderWidth = 'w-12 sm:w-14';
+            if (st.cols === 6) {
+                cellClass = 'w-11 h-11 sm:w-13 sm:h-13';
+                colHeaderWidth = 'w-11 sm:w-13';
+            } else if (st.cols === 7) {
+                cellClass = 'w-9 h-9 sm:w-12 sm:h-12';
+                colHeaderWidth = 'w-9 sm:w-12';
+            }
+
+            const colRow = document.createElement('div');
+            colRow.className = 'flex items-center mb-1';
+            const spacer = document.createElement('div');
+            spacer.className = 'w-6 sm:w-8';
+            colRow.appendChild(spacer);
+
+            for (let c = 0; c < st.cols; c++) {
+                const cLabel = document.createElement('div');
+                cLabel.className = `${colHeaderWidth} text-center font-scifi font-bold text-[#1e3a8a] text-sm sm:text-base`;
+                cLabel.innerText = c + 1;
+                colRow.appendChild(cLabel);
+            }
+            mapEl.appendChild(colRow);
+
+            for (let r = 0; r < st.rows; r++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'flex items-center';
+
+                const rLabel = document.createElement('div');
+                rLabel.className = 'w-6 sm:w-8 text-center font-scifi font-bold text-[#1e3a8a] text-sm sm:text-base';
+                rLabel.innerText = st.rowLabels[r];
+                rowDiv.appendChild(rLabel);
+
+                for (let c = 0; c < st.cols; c++) {
+                    const cell = document.createElement('div');
+                    cell.id = `cell-${r}-${c}`;
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+                    const isWall = st.walls.some(w => w.r === r && w.c === c);
+                    cell.className = `grid-cell ${cellClass} ${isWall ? 'wall' : ''}`;
+
+                    let content = '';
+                    if (robotPos.r === r && robotPos.c === c) {
+                        content = `
+                            <div class="flex flex-col items-center leading-none z-30">
+                                <span class="text-xl sm:text-2xl drop-shadow">🤖</span>
+                                <span class="text-[9px] font-bold text-[#1e3a8a] bg-white/80 px-1 rounded mt-0.5 hidden sm:block">หุ่นยนต์</span>
+                            </div>`;
+                    } else if (st.key && st.key.r === r && st.key.c === c && !keyCollected) {
+                        content = `
+                            <div class="flex flex-col items-center leading-none z-10">
+                                <span class="text-lg sm:text-xl">🔑</span>
+                                <span class="text-[9px] font-bold text-amber-800 mt-0.5 hidden sm:block">${st.key.label}</span>
+                            </div>`;
+                    } else if (st.computer && st.computer.r === r && st.computer.c === c) {
+                        content = `
+                            <div class="flex flex-col items-center leading-none z-10">
+                                <span class="text-lg sm:text-xl">${st.computer.icon}</span>
+                                <span class="text-[9px] font-bold text-slate-700 mt-0.5 hidden sm:block">${st.computer.label}</span>
+                            </div>`;
+                    } else if (st.goal.r === r && st.goal.c === c) {
+                        content = `
+                            <div class="flex flex-col items-center leading-none z-10">
+                                <span class="text-lg sm:text-xl">${st.goal.icon}</span>
+                                <span class="text-[9px] font-bold text-[#1e3a8a] mt-0.5 hidden sm:block">${st.goal.label}</span>
+                            </div>`;
+                    }
+
+                    cell.innerHTML = content;
+                    rowDiv.appendChild(cell);
+                }
+                mapEl.appendChild(rowDiv);
+            }
+        }
+
+        /* ==========================================================================
+           5. SVG GREY PATH ARROW RENDERER
+           ========================================================================== */
+        function drawSvgPath() {
+            const svg = document.getElementById('path-svg');
+            const container = document.getElementById('grid-container');
+            svg.innerHTML = '';
+
+            if (pathHistory.length < 2) return;
+
+            const containerRect = container.getBoundingClientRect();
+            const points = [];
+
+            for (const step of pathHistory) {
+                const cellEl = document.getElementById(`cell-${step.r}-${step.c}`);
+                if (cellEl) {
+                    const rect = cellEl.getBoundingClientRect();
+                    const x = (rect.left - containerRect.left) + rect.width / 2;
+                    const y = (rect.top - containerRect.top) + rect.height / 2;
+                    points.push({ x, y });
+                }
+            }
+
+            if (points.length < 2) return;
+
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            defs.innerHTML = `
+                <marker id="grey-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#64748b" stroke="#1e293b" stroke-width="1"/>
+                </marker>
+            `;
+            svg.appendChild(defs);
+
+            const polylineOutline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+            const ptsStr = points.map(p => `${p.x},${p.y}`).join(' ');
+            polylineOutline.setAttribute('points', ptsStr);
+            polylineOutline.setAttribute('fill', 'none');
+            polylineOutline.setAttribute('stroke', '#1e293b');
+            polylineOutline.setAttribute('stroke-width', '10');
+            polylineOutline.setAttribute('stroke-linejoin', 'round');
+            polylineOutline.setAttribute('stroke-linecap', 'round');
+            svg.appendChild(polylineOutline);
+
+            const polylineInner = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+            polylineInner.setAttribute('points', ptsStr);
+            polylineInner.setAttribute('fill', 'none');
+            polylineInner.setAttribute('stroke', '#64748b');
+            polylineInner.setAttribute('stroke-width', '6');
+            polylineInner.setAttribute('stroke-linejoin', 'round');
+            polylineInner.setAttribute('stroke-linecap', 'round');
+            polylineInner.setAttribute('marker-end', 'url(#grey-arrow)');
+            svg.appendChild(polylineInner);
+        }
+
+        /* ==========================================================================
+           6. COMMAND INPUT LOGIC & IPAD TOUCH DRAW GESTURES
+           ========================================================================== */
+        function setMultiplier(val) {
+            SFX.click();
+            selectedMultiplier = val;
+            document.getElementById('active-mult-label').innerText = `×${val}`;
+            document.querySelectorAll('.mult-pill').forEach(btn => {
+                const m = parseInt(btn.dataset.mult, 10);
+                if (m === val) {
+                    btn.className = "ipad-btn mult-pill rounded-lg font-scifi font-bold text-base bg-[#1e3a8a] text-[#fef08a] shadow";
+                } else {
+                    btn.className = "ipad-btn mult-pill rounded-lg font-scifi font-bold text-base bg-white text-[#1e3a8a] border border-amber-300";
+                }
+            });
+        }
+
+        function setupTouchGridDrawing() {
+            const container = document.getElementById('grid-container');
+
+            const getCellFromPoint = (clientX, clientY) => {
+                const el = document.elementFromPoint(clientX, clientY);
+                if (!el) return null;
+                const cell = el.closest('.grid-cell');
+                if (!cell || cell.dataset.r === undefined) return null;
+                return { r: parseInt(cell.dataset.r, 10), c: parseInt(cell.dataset.c, 10), el: cell };
+            };
+
+            const handleStart = (clientX, clientY) => {
+                if (isSimulating) return;
+                const cell = getCellFromPoint(clientX, clientY);
+                if (!cell) return;
+
+                const st = STATIONS[currentLevel];
+                isTouchDrawing = true;
+                drawnCells = [{ r: st.start.r, c: st.start.c }];
+                pathHistory = [{ r: st.start.r, c: st.start.c }];
+                document.getElementById('result-box').classList.add('hidden');
+
+                if (cell.r !== st.start.r || cell.c !== st.start.c) {
+                    handleMove(clientX, clientY);
+                } else {
+                    SFX.click();
+                    cell.el.classList.add('touch-highlight');
+                }
+            };
+
+            const handleMove = (clientX, clientY) => {
+                if (!isTouchDrawing || isSimulating) return;
+                const cell = getCellFromPoint(clientX, clientY);
+                if (!cell) return;
+
+                const last = drawnCells[drawnCells.length - 1];
+                if (last.r === cell.r && last.c === cell.c) return;
+
+                if (drawnCells.length >= 2) {
+                    const prev = drawnCells[drawnCells.length - 2];
+                    if (prev.r === cell.r && prev.c === cell.c) {
+                        const popped = drawnCells.pop();
+                        const poppedEl = document.getElementById(`cell-${popped.r}-${popped.c}`);
+                        if (poppedEl) poppedEl.classList.remove('touch-highlight');
+                        pathHistory = [...drawnCells];
+                        drawSvgPath();
+                        compileDrawnCellsToCommands();
+                        SFX.click();
+                        return;
+                    }
+                }
+
+                const dr = cell.r - last.r;
+                const dc = cell.c - last.c;
+                if (Math.abs(dr) + Math.abs(dc) === 1) {
+                    drawnCells.push({ r: cell.r, c: cell.c });
+                    cell.el.classList.add('touch-highlight');
+                    pathHistory = [...drawnCells];
+                    drawSvgPath();
+                    compileDrawnCellsToCommands();
+                    SFX.step();
+                }
+            };
+
+            const handleEnd = () => {
+                if (!isTouchDrawing) return;
+                isTouchDrawing = false;
+                document.querySelectorAll('.touch-highlight').forEach(el => el.classList.remove('touch-highlight'));
+            };
+
+            container.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    e.preventDefault();
+                    handleStart(e.touches[0].clientX, e.touches[0].clientY);
+                }
+            }, { passive: false });
+
+            container.addEventListener('touchmove', (e) => {
+                if (isTouchDrawing && e.touches.length === 1) {
+                    e.preventDefault();
+                    handleMove(e.touches[0].clientX, e.touches[0].clientY);
+                }
+            }, { passive: false });
+
+            container.addEventListener('touchend', handleEnd);
+            container.addEventListener('touchcancel', handleEnd);
+
+            container.addEventListener('mousedown', (e) => handleStart(e.clientX, e.clientY));
+            window.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+            window.addEventListener('mouseup', handleEnd);
+        }
+
+        function compileDrawnCellsToCommands() {
+            if (drawnCells.length < 2) {
+                commandList = [];
+                renderCommandList();
+                return;
+            }
+            const compiled = [];
+            for (let i = 1; i < drawnCells.length; i++) {
+                const prev = drawnCells[i - 1];
+                const curr = drawnCells[i];
+                let dir = 'UP';
+                if (curr.r < prev.r) dir = 'UP';
+                else if (curr.r > prev.r) dir = 'DOWN';
+                else if (curr.c < prev.c) dir = 'LEFT';
+                else if (curr.c > prev.c) dir = 'RIGHT';
+
+                if (compiled.length > 0 && compiled[compiled.length - 1].dir === dir) {
+                    compiled[compiled.length - 1].count++;
+                } else {
+                    compiled.push({ dir, count: 1 });
+                }
+            }
+            commandList = compiled;
+            renderCommandList();
+        }
+
+        const ARROWS = {
+            'UP': '⬆',
+            'DOWN': '⬇',
+            'LEFT': '⬅',
+            'RIGHT': '➡'
+        };
+
+        const COMPACT_ARROWS = {
+            'UP': '↑',
+            'DOWN': '↓',
+            'LEFT': '←',
+            'RIGHT': '→'
+        };
+
+        const DIR_THAI = {
+            'UP': 'เดินขึ้น',
+            'DOWN': 'เดินลง',
+            'LEFT': 'เดินซ้าย',
+            'RIGHT': 'เดินขวา'
+        };
+
+        function formatCommandsText(cmds) {
+            if (!cmds || cmds.length === 0) return '-';
+            return cmds.map(c => `${COMPACT_ARROWS[c.dir]}×${c.count}`).join(', ');
+        }
+
+        function addCommand(dir) {
+            if (isSimulating) return;
+            SFX.click();
+            const count = selectedMultiplier || 1;
+            commandList.push({ dir, count });
+            renderCommandList();
+        }
+
+        function undoLastCommand() {
+            if (isSimulating || commandList.length === 0) return;
+            SFX.click();
+            commandList.pop();
+            renderCommandList();
+        }
+
+        function removeCommand(idx) {
+            if (isSimulating) return;
+            SFX.click();
+            commandList.splice(idx, 1);
+            renderCommandList();
+        }
+
+        function clearCommands() {
+            if (isSimulating) return;
+            commandList = [];
+            renderCommandList();
+        }
+
+        function renderCommandList(activeIdx = -1) {
+            const listEl = document.getElementById('code-list');
+            document.getElementById('cmd-count').innerText = commandList.length;
+
+            if (commandList.length === 0) {
+                listEl.innerHTML = `<span class="text-xs text-slate-400 italic py-2">ยังไม่มีคำสั่ง แตะปุ่มทิศทางด้านบนหรือลากนิ้วบนตาราง...</span>`;
+                return;
+            }
+
+            listEl.innerHTML = '';
+            commandList.forEach((cmd, i) => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.onclick = () => removeCommand(i);
+                chip.title = "แตะเพื่อลบคำสั่งนี้";
+                chip.className = `ipad-btn cmd-chip ${i === activeIdx ? 'active-step' : ''} relative px-3.5 py-2 rounded-xl flex flex-col items-center justify-center cursor-pointer`;
+                chip.innerHTML = `
+                    <span class="text-xs font-extrabold text-[#1e3a8a] leading-none mb-0.5">×${cmd.count}</span>
+                    <span class="poster-arrow-icon w-9 h-8 text-lg font-bold">${ARROWS[cmd.dir]}</span>
+                    <span class="flex absolute -top-2 -right-2 w-5 h-5 bg-rose-600 text-white rounded-full text-[11px] font-bold items-center justify-center shadow">✕</span>
+                `;
+                listEl.appendChild(chip);
+            });
+        }
+
+        /* ==========================================================================
+           7. STEP-BY-STEP SIMULATION & ACTION FEEDBACK POPUP
+           ========================================================================== */
+        const wait = (ms) => new Promise(res => setTimeout(res, ms));
+
+        async function verifyAnswer() {
+            if (isSimulating) return;
+
+            const rawTeamName = document.getElementById('team-name-input').value.trim();
+            const teamName = rawTeamName || 'ไม่ระบุชื่อทีม';
+
+            if (commandList.length === 0) {
+                SFX.wrong();
+                showToast('⚠️', 'ยังไม่มีชุดคำสั่ง', 'กรุณาป้อนลูกศรคำสั่งของทีมอย่างน้อย 1 คำสั่งครับ');
+                return;
+            }
+
+            const cmdsSnapshot = commandList.map(c => ({ ...c }));
+            const stageSnapshot = currentLevel;
+
+            isSimulating = true;
+            document.getElementById('btn-verify').classList.add('opacity-60', 'cursor-not-allowed');
+            document.getElementById('result-box').classList.add('hidden');
+            const boardFrame = document.getElementById('poster-board-frame');
+            boardFrame.classList.remove('flash-correct', 'flash-wrong');
+
+            const st = STATIONS[currentLevel];
+            robotPos = { ...st.start };
+            pathHistory = [{ ...st.start }];
+            keyCollected = false;
+            computerVisited = false;
+            renderGrid();
+            drawSvgPath();
+
+            await wait(300);
+
+            for (let i = 0; i < commandList.length; i++) {
+                const cmd = commandList[i];
+                renderCommandList(i);
+
+                for (let step = 0; step < cmd.count; step++) {
+                    let nr = robotPos.r;
+                    let nc = robotPos.c;
+
+                    if (cmd.dir === 'UP') nr--;
+                    if (cmd.dir === 'DOWN') nr++;
+                    if (cmd.dir === 'LEFT') nc--;
+                    if (cmd.dir === 'RIGHT') nc++;
+
+                    // Check Out of Bounds
+                    if (nr < 0 || nr >= st.rows || nc < 0 || nc >= st.cols) {
+                        SFX.wrong();
+                        endSimulation();
+                        showEvaluationResult(
+                            false,
+                            'ตอบผิด! (เดินออกนอกตาราง)',
+                            `คำสั่งที่ ${i + 1} (${DIR_THAI[cmd.dir]} ×${cmd.count}) ก้าวที่ ${step + 1} หุ่นยนต์เดินทะลุขอบแผนที่`,
+                            false,
+                            { teamName, stage: stageSnapshot, cmds: cmdsSnapshot, shortStatus: 'ตอบผิด: ออกนอกแผนที่' }
+                        );
+                        return;
+                    }
+
+                    // Check Wall Hit
+                    const hitWall = st.walls.some(w => w.r === nr && w.c === nc);
+                    if (hitWall) {
+                        SFX.wrong();
+                        endSimulation();
+                        showEvaluationResult(
+                            false,
+                            'ตอบผิด! (เดินชนกำแพง)',
+                            `คำสั่งที่ ${i + 1} (${DIR_THAI[cmd.dir]} ×${cmd.count}) ก้าวที่ ${step + 1} หุ่นยนต์เดินชนกำแพงอิฐ!`,
+                            false,
+                            { teamName, stage: stageSnapshot, cmds: cmdsSnapshot, shortStatus: 'ตอบผิด: ชนกำแพง' }
+                        );
+                        return;
+                    }
+
+                    // Valid Step
+                    robotPos = { r: nr, c: nc };
+                    pathHistory.push({ r: nr, c: nc });
+                    SFX.step();
+
+                    if (st.key && nr === st.key.r && nc === st.key.c && !keyCollected) {
+                        keyCollected = true;
+                        SFX.key();
+                    }
+
+                    if (st.computer && nr === st.computer.r && nc === st.computer.c) {
+                        computerVisited = true;
+                    }
+
+                    renderGrid();
+                    drawSvgPath();
+                    await wait(350);
+                }
+            }
+
+            endSimulation();
+
+            // Check Final Goal
+            if (robotPos.r === st.goal.r && robotPos.c === st.goal.c) {
+                if (st.key && !keyCollected) {
+                    SFX.wrong();
+                    showEvaluationResult(
+                        false,
+                        'ตอบผิด! (ยังไม่เก็บกุญแจ)',
+                        'หุ่นยนต์ไปถึงประตูมิติ A7 แล้ว แต่ไม่ได้แวะเก็บกุญแจ (🔑) ที่ C2 ก่อน!',
+                        false,
+                        { teamName, stage: stageSnapshot, cmds: cmdsSnapshot, shortStatus: 'ตอบผิด: ลืมเก็บกุญแจ' }
+                    );
+                    return;
+                }
+
+                if (st.computer && !computerVisited) {
+                    SFX.wrong();
+                    showEvaluationResult(
+                        false,
+                        'ตอบผิด! (ไม่ผ่านเครื่องคอมพิวเตอร์)',
+                        'หุ่นยนต์ต้องเดินผ่านเครื่องคอมพิวเตอร์ (💻) ที่ช่อง A5 ก่อนเข้าประตูมิติ A7!',
+                        false,
+                        { teamName, stage: stageSnapshot, cmds: cmdsSnapshot, shortStatus: 'ตอบผิด: ไม่ผ่านเครื่อง A5' }
+                    );
+                    return;
+                }
+
+                // PASSED!
+                SFX.correct();
+                const isOptimal = commandList.length <= st.optimalCount;
+                const optMsg = isOptimal 
+                    ? `ยอดเยี่ยม! ใช้ ${commandList.length} ชุดคำสั่ง (ได้โบนัส Loop สั้นที่สุด +50)` 
+                    : `ผ่านด่านสำเร็จด้วย ${commandList.length} ชุดคำสั่ง (ไม่ได้โบนัส Loop สั้นสุด)`;
+                const shortStatus = isOptimal ? 'ตอบถูก (Optimal +150)' : 'ตอบถูก (+100)';
+                showEvaluationResult(
+                    true,
+                    'ตอบถูก! ผ่านภารกิจ (+100 คะแนน)',
+                    optMsg,
+                    isOptimal,
+                    { teamName, stage: stageSnapshot, cmds: cmdsSnapshot, shortStatus }
+                );
+            } else {
+                SFX.wrong();
+                const stopCoord = `${st.rowLabels[robotPos.r]}${robotPos.c + 1}`;
+                showEvaluationResult(
+                    false,
+                    'ตอบผิด! (ไม่ถึงเป้าหมาย)',
+                    `จบคำสั่งแล้วหุ่นยนต์หยุดอยู่ที่ช่อง ${stopCoord} ยังไปไม่ถึง${st.goal.label}`,
+                    false,
+                    { teamName, stage: stageSnapshot, cmds: cmdsSnapshot, shortStatus: 'ตอบผิด: ไม่ถึงเป้าหมาย' }
+                );
+            }
+        }
+
+        function endSimulation() {
+            isSimulating = false;
+            renderCommandList(-1);
+            document.getElementById('btn-verify').classList.remove('opacity-60', 'cursor-not-allowed');
+        }
+
+        function triggerActionFeedbackModal(passed, headline, subText, totalScore) {
+            const overlay = document.getElementById('action-feedback-overlay');
+            const card = document.getElementById('action-feedback-card');
+            const badge = document.getElementById('action-fb-badge');
+            const emoji = document.getElementById('action-fb-emoji');
+            const titleEl = document.getElementById('action-fb-headline');
+            const subEl = document.getElementById('action-fb-sub');
+            const scorePill = document.getElementById('action-fb-score-pill');
+            const btn = document.getElementById('action-fb-btn');
+
+            card.classList.remove('anim-pop-correct', 'anim-pop-wrong', 'border-emerald-500', 'bg-emerald-50', 'border-rose-500', 'bg-rose-50');
+            void card.offsetWidth; // trigger reflow for restart animation
+
+            if (passed) {
+                card.classList.add('border-emerald-500', 'bg-emerald-50', 'anim-pop-correct');
+                badge.className = 'inline-block text-xs font-extrabold tracking-widest uppercase px-4 py-1 rounded-full mb-3 bg-emerald-200 text-emerald-900';
+                badge.innerText = 'MISSION COMPLETE';
+                emoji.innerText = '🎉';
+                titleEl.className = 'font-scifi text-3xl sm:text-4xl font-extrabold mb-2 text-emerald-700';
+                titleEl.innerText = 'ตอบถูก! ผ่านภารกิจ';
+                subEl.className = 'text-base sm:text-lg font-semibold mb-4 text-emerald-900';
+                subEl.innerText = subText;
+                scorePill.className = 'inline-block font-scifi font-bold text-xl px-5 py-2 rounded-2xl mb-5 bg-emerald-600 text-white shadow';
+                scorePill.innerText = `ได้คะแนนฐานนี้ ${totalScore} คะแนน`;
+                btn.className = 'ipad-btn w-full font-scifi font-bold text-lg py-3.5 px-6 rounded-2xl text-white shadow-lg bg-emerald-600 hover:bg-emerald-700';
+            } else {
+                card.classList.add('border-rose-500', 'bg-rose-50', 'anim-pop-wrong');
+                badge.className = 'inline-block text-xs font-extrabold tracking-widest uppercase px-4 py-1 rounded-full mb-3 bg-rose-200 text-rose-900';
+                badge.innerText = 'MISSION FAILED';
+                emoji.innerText = '❌';
+                titleEl.className = 'font-scifi text-3xl sm:text-4xl font-extrabold mb-2 text-rose-700';
+                titleEl.innerText = 'ตอบผิด! ไม่ผ่านภารกิจ';
+                subEl.className = 'text-base sm:text-lg font-semibold mb-4 text-rose-900';
+                subEl.innerText = subText;
+                scorePill.className = 'inline-block font-scifi font-bold text-xl px-5 py-2 rounded-2xl mb-5 bg-rose-600 text-white shadow';
+                scorePill.innerText = `ได้คะแนนฐานนี้ ${totalScore} คะแนน`;
+                btn.className = 'ipad-btn w-full font-scifi font-bold text-lg py-3.5 px-6 rounded-2xl text-white shadow-lg bg-rose-600 hover:bg-rose-700';
+            }
+
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+        }
+
+        function closeActionFeedback() {
+            SFX.click();
+            const overlay = document.getElementById('action-feedback-overlay');
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
+        }
+
+        function showEvaluationResult(passed, title, desc, isOptimal = false, logMeta = null) {
+            const box = document.getElementById('result-box');
+            const icon = document.getElementById('res-icon');
+            const titleEl = document.getElementById('res-title');
+            const descEl = document.getElementById('res-desc');
+            const boardFrame = document.getElementById('poster-board-frame');
+
+            box.classList.remove('hidden', 'bg-emerald-50', 'border-emerald-500', 'bg-rose-50', 'border-rose-500');
+            boardFrame.classList.remove('flash-correct', 'flash-wrong');
+            void boardFrame.offsetWidth;
+
+            if (passed) {
+                box.classList.add('bg-emerald-50', 'border-emerald-500');
+                boardFrame.classList.add('flash-correct');
+                icon.innerText = '🎉';
+                titleEl.className = 'font-scifi font-bold text-base sm:text-lg text-emerald-800';
+                descEl.className = 'text-xs sm:text-sm mt-0.5 text-emerald-700';
+
+                lastEval.passed = true;
+                lastEval.missionScore = 100;
+                lastEval.optimalScore = isOptimal ? 50 : 0;
+
+                document.getElementById('score-mission-badge').innerText = '+100 คะแนน';
+                document.getElementById('score-mission-badge').className = 'font-bold text-emerald-600';
+                document.getElementById('score-optimal-badge').innerText = isOptimal ? '+50 คะแนน' : '0 คะแนน';
+                document.getElementById('score-optimal-badge').className = isOptimal ? 'font-bold text-amber-600' : 'font-bold text-slate-400';
+            } else {
+                box.classList.add('bg-rose-50', 'border-rose-500');
+                boardFrame.classList.add('flash-wrong');
+                icon.innerText = '❌';
+                titleEl.className = 'font-scifi font-bold text-base sm:text-lg text-rose-800';
+                descEl.className = 'text-xs sm:text-sm mt-0.5 text-rose-700';
+
+                lastEval.passed = false;
+                lastEval.missionScore = 0;
+                lastEval.optimalScore = 0;
+
+                document.getElementById('score-mission-badge').innerText = '0 คะแนน (ตอบผิด)';
+                document.getElementById('score-mission-badge').className = 'font-bold text-rose-600';
+                document.getElementById('score-optimal-badge').innerText = '0 คะแนน';
+                document.getElementById('score-optimal-badge').className = 'font-bold text-slate-400';
+            }
+
+            titleEl.innerText = title;
+            descEl.innerText = desc;
+            const totalScore = recalculateTotal();
+
+            // Show big visual Action Feedback Overlay
+            triggerActionFeedbackModal(passed, title, desc, totalScore);
+
+            if (logMeta) {
+                recordAutoLog({
+                    teamName: logMeta.teamName,
+                    stage: logMeta.stage,
+                    commandsStr: formatCommandsText(logMeta.cmds),
+                    status: logMeta.shortStatus,
+                    passed: passed,
+                    score: totalScore
+                });
+            }
+        }
+
+        function recalculateTotal() {
+            const survived = document.getElementById('chk-survived').checked;
+            const virusBonus = survived ? 50 : 0;
+            
+            document.getElementById('pre-virus-badge').innerText = survived ? '+50 คะแนน' : '0 คะแนน (โดนไวรัส)';
+            document.getElementById('pre-virus-badge').className = survived 
+                ? 'text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md' 
+                : 'text-xs font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md';
+
+            document.getElementById('score-virus-badge').innerText = survived ? '+50 คะแนน' : '0 คะแนน (โดนไวรัส)';
+            document.getElementById('score-virus-badge').className = survived ? 'font-bold text-blue-600' : 'font-bold text-rose-500';
+
+            const total = lastEval.missionScore + lastEval.optimalScore + virusBonus;
+            document.getElementById('score-stage-total').innerText = `${total} คะแนน`;
+            return total;
+        }
+
+        /* ==========================================================================
+           8. AUTO-RUN LOGGING SYSTEM
+           ========================================================================== */
+        function getFormattedTime() {
+            const now = new Date();
+            return now.toTimeString().split(' ')[0];
+        }
+
+        function recordAutoLog(entry) {
+            const logItem = {
+                id: Date.now() + Math.floor(Math.random() * 1000),
+                time: getFormattedTime(),
+                teamName: entry.teamName,
+                stage: entry.stage,
+                commandsStr: entry.commandsStr,
+                status: entry.status,
+                passed: entry.passed,
+                score: entry.score
+            };
+            autoRunLogs.unshift(logItem);
+            localStorage.setItem('gmCodeEscapeLogs', JSON.stringify(autoRunLogs));
+            renderRunLogs();
+        }
+
+        function renderRunLogs() {
+            const tbody = document.getElementById('run-log-tbody');
+            document.getElementById('log-count').innerText = autoRunLogs.length;
+
+            if (autoRunLogs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400">ยังไม่มีประวัติการรันตรวจคำตอบ</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            autoRunLogs.forEach((log, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = log.passed ? 'bg-emerald-50/40 hover:bg-emerald-50' : 'bg-rose-50/30 hover:bg-rose-50/60';
+                const statusBadgeClass = log.passed
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-rose-100 text-rose-800 border-rose-300';
+
+                tr.innerHTML = `
+                    <td class="py-2 px-2 font-mono text-[11px] text-slate-500 whitespace-nowrap">${log.time}</td>
+                    <td class="py-2 px-2 font-bold text-slate-800">${escapeHtml(log.teamName)}</td>
+                    <td class="py-2 px-1.5 text-center font-scifi font-bold text-[#1e3a8a]">ฐาน ${log.stage}</td>
+                    <td class="py-2 px-2 font-mono text-[11px] text-slate-700">${escapeHtml(log.commandsStr)}</td>
+                    <td class="py-2 px-2">
+                        <span class="inline-block px-2 py-0.5 rounded border text-[11px] font-bold whitespace-nowrap ${statusBadgeClass}">
+                            ${escapeHtml(log.status)}
+                        </span>
+                    </td>
+                    <td class="py-2 px-2 text-right font-scifi font-bold text-[#1e3a8a] whitespace-nowrap">${log.score}</td>
+                    <td class="py-2 px-1.5 text-center">
+                        <button onclick="applyLogToLeaderboard(${idx})" title="ส่งคะแนนนี้เข้าตารางสรุปผลรวม"
+                            class="bg-[#2b6cb0] hover:bg-[#1e3a8a] text-white text-[11px] font-bold px-2 py-1 rounded-md transition whitespace-nowrap">
+                            + ตาราง
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function applyLogToLeaderboard(logIndex) {
+            const log = autoRunLogs[logIndex];
+            if (!log) return;
+
+            if (!teamScores[log.teamName]) {
+                teamScores[log.teamName] = { s1: 0, s2: 0, s3: 0, timestamp: Date.now() };
+            }
+            teamScores[log.teamName][`s${log.stage}`] = log.score;
+            teamScores[log.teamName].timestamp = Date.now();
+
+            localStorage.setItem('gmCodeEscapeScores', JSON.stringify(teamScores));
+            renderLeaderboard();
+            SFX.correct();
+            showToast('✅', 'อัปเดตตารางสรุปผลแล้ว', `นำคะแนนฐานที่ ${log.stage} (${log.score} คะแนน) ของ "${log.teamName}" ลงตารางสรุปผลรวมเรียบร้อยครับ`);
+        }
+
+        function copyRunLogs() {
+            if (autoRunLogs.length === 0) {
+                showToast('ℹ️', 'ไม่มีข้อมูล Log', 'ยังไม่มีประวัติการรันตรวจคำตอบสำหรับคัดลอกครับ');
+                return;
+            }
+            const header = "เวลา\tชื่อทีม\tฐาน\tชุดคำสั่ง\tผลการตรวจ\tคะแนน";
+            const rows = autoRunLogs.map(l => `${l.time}\t${l.teamName}\tฐานที่ ${l.stage}\t${l.commandsStr}\t${l.status}\t${l.score}`);
+            const textToCopy = [header, ...rows].join('\n');
+
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            SFX.click();
+            showToast('📋', 'คัดลอก Log สำเร็จ!', `คัดลอกประวัติการตรวจจำนวน ${autoRunLogs.length} รายการลงคลิปบอร์ดแล้ว (สามารถนำไปวางใน Excel หรือ Google Sheets ได้ทันที)`);
+        }
+
+        function confirmClearLogs() {
+            const modal = document.getElementById('toast-modal');
+            document.getElementById('toast-icon').innerText = '🗑️';
+            document.getElementById('toast-title').innerText = 'ล้างประวัติ Auto-Run Log?';
+            document.getElementById('toast-msg').innerText = 'รายการบันทึกการตรวจคำตอบทั้งหมดจะถูกลบออก';
+            document.getElementById('toast-actions').innerHTML = `
+                <button onclick="executeClearLogs()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-5 rounded-xl text-sm">ยืนยันลบ</button>
+                <button onclick="closeToast()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-5 rounded-xl text-sm">ยกเลิก</button>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function executeClearLogs() {
+            autoRunLogs = [];
+            localStorage.removeItem('gmCodeEscapeLogs');
+            renderRunLogs();
+            closeToast();
+            SFX.click();
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        /* ==========================================================================
+           9. LEADERBOARD SAVE & RENDER
+           ========================================================================== */
+        function saveTeamScore() {
+            const rawTeamName = document.getElementById('team-name-input').value.trim();
+            const teamName = rawTeamName || 'ไม่ระบุชื่อทีม';
+
+            const stageTotal = recalculateTotal();
+            if (!teamScores[teamName]) {
+                teamScores[teamName] = { s1: 0, s2: 0, s3: 0, timestamp: Date.now() };
+            }
+
+            teamScores[teamName][`s${currentLevel}`] = stageTotal;
+            teamScores[teamName].timestamp = Date.now();
+
+            localStorage.setItem('gmCodeEscapeScores', JSON.stringify(teamScores));
+            renderLeaderboard();
+            SFX.correct();
+            showToast('✅', 'บันทึกคะแนนสำเร็จ!', `บันทึกคะแนนฐานที่ ${currentLevel} ของ "${teamName}" จำนวน ${stageTotal} คะแนนเรียบร้อยแล้ว`);
+        }
+
+        function renderLeaderboard() {
+            const tbody = document.getElementById('leaderboard-tbody');
+            const list = Object.entries(teamScores).map(([name, sc]) => ({
+                name,
+                s1: sc.s1 || 0,
+                s2: sc.s2 || 0,
+                s3: sc.s3 || 0,
+                total: (sc.s1 || 0) + (sc.s2 || 0) + (sc.s3 || 0),
+                timestamp: sc.timestamp || 0
+            }));
+
+            list.sort((a, b) => b.total - a.total || a.timestamp - b.timestamp);
+
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-400">ยังไม่มีการบันทึกคะแนนทีม</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            list.forEach((item, index) => {
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}`;
+                const rowBg = index === 0 ? 'bg-amber-50/90 font-bold' : 'hover:bg-slate-50';
+                const tr = document.createElement('tr');
+                tr.className = rowBg;
+                tr.innerHTML = `
+                    <td class="py-2.5 px-2 font-scifi text-base">${medal}</td>
+                    <td class="py-2.5 px-2 text-slate-800">${item.name}</td>
+                    <td class="py-2.5 px-1.5 text-center text-slate-600">${item.s1}</td>
+                    <td class="py-2.5 px-1.5 text-center text-slate-600">${item.s2}</td>
+                    <td class="py-2.5 px-1.5 text-center text-slate-600">${item.s3}</td>
+                    <td class="py-2.5 px-2 text-right font-scifi font-bold text-[#1e3a8a] text-base">${item.total}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function confirmClearLeaderboard() {
+            const modal = document.getElementById('toast-modal');
+            document.getElementById('toast-icon').innerText = '🗑️';
+            document.getElementById('toast-title').innerText = 'ล้างตารางคะแนนทั้งหมด?';
+            document.getElementById('toast-msg').innerText = 'ข้อมูลคะแนนของทุกทีมจะถูกลบออกจากระบบ';
+            document.getElementById('toast-actions').innerHTML = `
+                <button onclick="executeClearLeaderboard()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-5 rounded-xl text-sm">ยืนยันลบ</button>
+                <button onclick="closeToast()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-5 rounded-xl text-sm">ยกเลิก</button>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function executeClearLeaderboard() {
+            teamScores = {};
+            localStorage.removeItem('gmCodeEscapeScores');
+            renderLeaderboard();
+            closeToast();
+            SFX.click();
+        }
+
+        /* ==========================================================================
+           10. TOAST MODAL
+           ========================================================================== */
+        function showToast(icon, title, msg) {
+            const modal = document.getElementById('toast-modal');
+            document.getElementById('toast-icon').innerText = icon;
+            document.getElementById('toast-title').innerText = title;
+            document.getElementById('toast-msg').innerText = msg;
+            document.getElementById('toast-actions').innerHTML = `
+                <button onclick="closeToast()" class="bg-[#2b6cb0] hover:bg-[#1e3a8a] text-white font-bold py-2 px-6 rounded-xl text-sm transition">ตกลง</button>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeToast() {
+            SFX.click();
+            const modal = document.getElementById('toast-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    </script>
+</body>
+</html>
